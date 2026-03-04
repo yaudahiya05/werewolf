@@ -3,154 +3,204 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Werewolf AI - Web Edition</title>
+    <title>Werewolf Elite - Web Edition</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        /* --- CSS STYLING & THEMES --- */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+
+        /* --- TEMA & VARIABEL WARNA MODERN --- */
         :root {
             --text-light: #f8fafc;
             --text-dark: #0f172a;
-            --ww-red: #ef4444;
-            --seer-blue: #3b82f6;
-            --guard-green: #10b981;
-            --card-bg-dark: rgba(30, 41, 59, 0.8);
-            --card-bg-light: rgba(255, 255, 255, 0.8);
+            --ww-red: #ff4757;
+            --seer-blue: #1e90ff;
+            --guard-green: #2ed573;
+            --glass-bg: rgba(30, 41, 59, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
 
         body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            transition: background 1.5s ease, color 1.5s ease;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            overflow-x: hidden;
+            margin: 0; padding: 0;
+            font-family: 'Poppins', sans-serif;
+            transition: background 1s ease, color 1s ease;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; overflow-x: hidden;
+            background-color: #0f172a;
+            background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 70%);
+            color: var(--text-light);
         }
 
-        /* TEMA: MENUNGGU / LOGIN */
-        body.theme-lobby { background: #1e293b; color: var(--text-light); }
-        
-        /* TEMA: MALAM HARI (NIGHT) */
-        body.theme-night { background: #020617; color: var(--text-light); }
-        
-        /* TEMA: PAGI HARI (DAY) - Hasil semalam */
-        body.theme-day { background: #e0f2fe; color: var(--text-dark); }
-        
-        /* TEMA: SORE/VOTING - Tegang */
-        body.theme-voting { background: #fed7aa; color: var(--text-dark); }
+        body.theme-night { background-image: radial-gradient(circle at 50% 0%, #020617 0%, #000000 80%); }
+        body.theme-day { background-image: radial-gradient(circle at 50% 0%, #38bdf8 0%, #0ea5e9 80%); color: var(--text-light); }
+        body.theme-voting { background-image: radial-gradient(circle at 50% 0%, #f59e0b 0%, #b45309 80%); color: var(--text-light); }
 
-        .container { width: 95%; max-width: 900px; margin-top: 20px; display: flex; flex-direction: column; gap: 20px; z-index: 10; }
+        .container { width: 95%; max-width: 900px; margin-top: 20px; display: flex; flex-direction: column; gap: 15px; z-index: 10; }
+
+        /* --- EFEK GLASSMORPHISM GLOBAL --- */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            box-shadow: var(--glass-shadow);
+        }
 
         /* --- LOGIN SCREEN --- */
         #login-screen {
-            background: var(--card-bg-dark); padding: 40px; border-radius: 20px;
-            text-align: center; margin-top: 15vh; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            color: white; border: 1px solid rgba(255,255,255,0.1);
+            padding: 40px; text-align: center; margin-top: 15vh;
+            animation: fadeInDown 0.8s ease-out;
         }
-        input { width: 80%; padding: 15px; margin: 10px 0; border-radius: 10px; border: none; font-size: 16px; text-align: center; }
+        input { 
+            width: 80%; padding: 12px 15px; margin: 10px 0; 
+            border-radius: 10px; border: 2px solid transparent; 
+            background: rgba(255,255,255,0.1); color: white;
+            font-size: 14px; text-align: center; font-family: 'Poppins', sans-serif;
+            transition: 0.3s;
+        }
+        input:focus { outline: none; border-color: var(--seer-blue); background: rgba(255,255,255,0.2); }
+        input::placeholder { color: rgba(255,255,255,0.5); }
+
         button.btn-primary {
-            background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; border: none;
-            padding: 15px 30px; font-size: 18px; border-radius: 10px; cursor: pointer;
-            transition: 0.3s; font-weight: bold; width: 85%; margin-top: 15px;
+            background: linear-gradient(135deg, #ff4757, #ff6b81); color: white; border: none;
+            padding: 12px 25px; font-size: 15px; border-radius: 10px; cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); font-weight: 800; width: 85%; margin-top: 15px;
+            box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4); text-transform: uppercase; letter-spacing: 1px;
         }
-        button.btn-primary:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4); }
+        button.btn-primary:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 8px 25px rgba(255, 71, 87, 0.6); }
 
-        /* --- GAME SCREEN --- */
-        #game-screen { display: none; flex-direction: column; gap: 20px; }
+        /* --- GAME SCREEN HEADER --- */
+        #game-screen { display: none; flex-direction: column; gap: 15px; animation: fadeIn 0.5s ease-in; }
 
-        .header {
-            display: flex; justify-content: space-between; align-items: center;
-            background: rgba(0,0,0,0.2); padding: 15px 25px; border-radius: 15px;
-            backdrop-filter: blur(10px);
-        }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; }
+        .phase-title { font-size: 22px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: 1.5px; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+        .day-counter { font-size: 12px; opacity: 0.8; font-weight: 600; letter-spacing: 1px; }
 
-        .phase-title { font-size: 24px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: 2px; }
-        .day-counter { font-size: 14px; opacity: 0.8; }
-
-        #my-role-container { text-align: right; }
         #my-role-badge {
-            display: inline-block; padding: 8px 15px; border-radius: 8px; font-weight: bold;
-            font-size: 16px; text-transform: uppercase; letter-spacing: 1px; color: white;
-            background: #475569; /* Default hidden */
-            transition: all 0.5s;
+            display: inline-block; padding: 8px 15px; border-radius: 20px; font-weight: 800;
+            font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: white;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: all 0.5s;
         }
 
-        /* --- INSTRUCTION OVERLAY (Pesan Spesifik Role) --- */
+        /* --- INSTRUCTIONS --- */
         #role-instruction {
-            text-align: center; padding: 15px; border-radius: 10px; font-weight: bold; font-size: 18px;
-            display: none; transition: 0.5s;
+            text-align: center; padding: 12px; border-radius: 12px; font-weight: 600; font-size: 14px;
+            display: none; transition: 0.5s; backdrop-filter: blur(5px);
+            animation: pulseInst 2s infinite;
         }
-        .inst-werewolf { background: rgba(239, 68, 68, 0.2); border: 2px solid var(--ww-red); color: var(--ww-red); }
-        .inst-seer { background: rgba(59, 130, 246, 0.2); border: 2px solid var(--seer-blue); color: var(--seer-blue); }
-        .inst-guard { background: rgba(16, 185, 129, 0.2); border: 2px solid var(--guard-green); color: var(--guard-green); }
-        .inst-sleep { background: rgba(255, 255, 255, 0.1); border: 2px dashed #94a3b8; color: #94a3b8; }
+        @keyframes pulseInst { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
+        
+        .inst-werewolf { background: rgba(255, 71, 87, 0.15); border: 1px solid var(--ww-red); color: #ff6b81; text-shadow: 0 0 10px rgba(255,71,87,0.5); }
+        .inst-seer { background: rgba(30, 144, 255, 0.15); border: 1px solid var(--seer-blue); color: #70a1ff; text-shadow: 0 0 10px rgba(30,144,255,0.5); }
+        .inst-guard { background: rgba(46, 213, 115, 0.15); border: 1px solid var(--guard-green); color: #7bed9f; text-shadow: 0 0 10px rgba(46,213,115,0.5); }
+        .inst-sleep { background: rgba(255, 255, 255, 0.05); border: 1px dashed rgba(255,255,255,0.3); color: #cbd5e1; animation: none !important; }
 
         /* --- LOG CONTAINER --- */
         .log-container {
-            background: rgba(0, 0, 0, 0.3); height: 180px; overflow-y: auto;
-            border-radius: 15px; padding: 15px; display: flex; flex-direction: column; gap: 10px;
-            border: 1px solid rgba(255,255,255,0.1); color: white;
+            height: 180px; overflow-y: auto; padding: 15px;
+            display: flex; flex-direction: column; gap: 10px;
+            scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.3) transparent;
         }
-        .log-msg { background: rgba(255,255,255,0.1); padding: 10px 15px; border-radius: 8px; font-size: 15px; border-left: 4px solid #94a3b8; }
-        .log-msg.important { border-left-color: var(--ww-red); background: rgba(239, 68, 68, 0.1); }
+        .log-container::-webkit-scrollbar { width: 6px; }
+        .log-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 10px; }
+        
+        .log-msg { 
+            background: rgba(255,255,255,0.05); padding: 10px 14px; border-radius: 10px; 
+            font-size: 13px; border-left: 4px solid #94a3b8; line-height: 1.5;
+            animation: slideInRight 0.3s ease-out forwards;
+        }
+        .log-msg.important { border-left-color: var(--ww-red); background: rgba(255, 71, 87, 0.1); font-weight: 600; }
 
-        /* --- PLAYERS GRID --- */
-        .players-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
+        /* --- PLAYERS GRID (MODERN CARDS) --- */
+        .players-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; padding-bottom: 70px; }
         
         .player-card {
-            background: var(--card-bg-dark); padding: 20px 10px; border-radius: 15px;
-            text-align: center; cursor: pointer; transition: 0.3s;
-            border: 2px solid transparent; color: white; position: relative;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background: rgba(255,255,255,0.05); padding: 15px 10px; border-radius: 15px;
+            text-align: center; cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 1px solid rgba(255,255,255,0.1); position: relative; overflow: visible;
         }
-        body.theme-day .player-card, body.theme-voting .player-card { background: var(--card-bg-light); color: var(--text-dark); border: 1px solid #cbd5e1; }
-
-        .player-card.clickable:hover { transform: translateY(-5px); box-shadow: 0 10px 15px rgba(0,0,0,0.2); border-color: #cbd5e1; }
         
-        .player-card.selected { transform: scale(1.05); }
-        .player-card.selected-ww { border-color: var(--ww-red); box-shadow: 0 0 15px var(--ww-red); }
-        .player-card.selected-seer { border-color: var(--seer-blue); box-shadow: 0 0 15px var(--seer-blue); }
-        .player-card.selected-guard { border-color: var(--guard-green); box-shadow: 0 0 15px var(--guard-green); }
-        .player-card.selected-vote { border-color: #f59e0b; box-shadow: 0 0 15px #f59e0b; background: rgba(245, 158, 11, 0.1); }
+        .player-card h2 { margin: 0 0 8px 0; font-size: 20px; opacity: 0.3; font-weight: 800; transition: 0.3s; }
+        .player-card p { margin: 0; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
 
-        .player-card.dead { filter: grayscale(100%); opacity: 0.5; text-decoration: line-through; cursor: not-allowed; border-color: #475569; }
-        .player-card.dead::after { content: '💀'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; opacity: 0.8; }
-
-        .ww-friend { position: absolute; top: -10px; right: -10px; background: var(--ww-red); padding: 5px; border-radius: 50%; font-size: 16px; box-shadow: 0 0 10px var(--ww-red); }
-
-        /* --- ACTION BUTTON --- */
-        #action-container { display: none; justify-content: center; position: fixed; bottom: 30px; left: 0; width: 100%; z-index: 100; }
-        #btn-action {
-            padding: 15px 40px; font-size: 20px; font-weight: bold; border-radius: 30px; border: none;
-            color: white; cursor: pointer; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            animation: pulse 2s infinite; transition: 0.3s;
+        .player-card.clickable:hover { 
+            transform: translateY(-5px); 
+            background: rgba(255,255,255,0.1); 
+            border-color: rgba(255,255,255,0.4);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.3);
         }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        .player-card.clickable:hover h2 { opacity: 0.8; }
         
-        .btn-ww { background: var(--ww-red); }
-        .btn-seer { background: var(--seer-blue); }
-        .btn-guard { background: var(--guard-green); }
-        .btn-vote { background: #f59e0b; color: #1e293b !important; }
+        .player-card.selected { transform: translateY(-8px) scale(1.05); background: rgba(0,0,0,0.4); }
+        .player-card.selected-ww { border: 2px solid var(--ww-red); box-shadow: 0 8px 20px rgba(255, 71, 87, 0.4); }
+        .player-card.selected-seer { border: 2px solid var(--seer-blue); box-shadow: 0 8px 20px rgba(30, 144, 255, 0.4); }
+        .player-card.selected-guard { border: 2px solid var(--guard-green); box-shadow: 0 8px 20px rgba(46, 213, 115, 0.4); }
+        .player-card.selected-vote { border: 2px solid #fcd34d; box-shadow: 0 8px 20px rgba(252, 211, 77, 0.4); }
 
-        #btn-action:hover { transform: scale(1.1) !important; animation: none; }
+        .player-card.dead { 
+            filter: grayscale(100%) brightness(0.6); opacity: 0.6; cursor: not-allowed; 
+            border: 1px solid rgba(255,0,0,0.2); background: rgba(0,0,0,0.5);
+        }
+        .player-card.dead::after { 
+            content: '☠️'; position: absolute; top: 50%; left: 50%; 
+            transform: translate(-50%, -50%); font-size: 40px; 
+            opacity: 0.9; text-shadow: 0 0 15px rgba(255,0,0,0.8);
+        }
+
+        .ww-friend { 
+            position: absolute; top: -8px; right: -8px; background: var(--ww-red); 
+            padding: 5px; border-radius: 50%; font-size: 12px; 
+            box-shadow: 0 0 10px var(--ww-red); border: 2px solid #0f172a;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .mayor-crown {
+            position: absolute; top: -15px; left: -10px; font-size: 24px;
+            filter: drop-shadow(0 0 10px #fcd34d); animation: float 3s ease-in-out infinite; z-index: 5;
+        }
+
+        /* --- ACTION BUTTON (MENGAMBANG DI BAWAH) --- */
+        #action-container { 
+            display: none; justify-content: center; align-items: center; gap: 10px; position: fixed; 
+            bottom: 30px; left: 0; width: 100%; z-index: 100; 
+            animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .btn-action-main {
+            padding: 12px 30px; font-size: 15px; font-weight: 800; border-radius: 30px; border: none;
+            color: white; cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            text-transform: uppercase; letter-spacing: 1.5px; transition: 0.3s;
+        }
+        .btn-ww { background: linear-gradient(135deg, #ff4757, #c0392b); }
+        .btn-seer { background: linear-gradient(135deg, #1e90ff, #2980b9); }
+        .btn-guard { background: linear-gradient(135deg, #2ed573, #27ae60); }
+        .btn-vote { background: linear-gradient(135deg, #f59e0b, #d35400); }
+
+        .btn-action-main:hover { transform: translateY(-3px) scale(1.05); filter: brightness(1.2); }
+
+        /* --- ANIMATIONS --- */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-5px); } 100% { transform: translateY(0px); } }
+
     </style>
 </head>
 <body class="theme-lobby">
 
     <div class="container">
-        <div id="login-screen">
+        <div id="login-screen" class="glass-panel">
             <h1 style="margin-bottom: 5px;">🐺 Lulli Werewolf</h1>
-            <p style="opacity: 0.7; margin-bottom: 25px;">Masukkan identitas untuk memasuki desa.</p>
+            <p style="opacity: 0.7; margin-bottom: 25px; font-size: 14px;">Masukkan identitas untuk memasuki desa.</p>
             <input type="text" id="playerName" placeholder="Nama Kamu (cth: Surya)" required>
             <input type="text" id="roomId" placeholder="ID Room (cth: LULLI123)" required>
             <button class="btn-primary" onclick="joinGame()">Masuk ke Desa</button>
         </div>
 
         <div id="game-screen">
-            
-            <div class="header">
+            <div class="header glass-panel">
                 <div>
                     <div id="phase-title" class="phase-title">MENUNGGU PEMAIN</div>
                     <div id="day-counter" class="day-counter">Room: -</div>
@@ -162,25 +212,23 @@
 
             <div id="role-instruction"></div>
 
-            <div class="log-container" id="game-log"></div>
+            <div class="log-container glass-panel" id="game-log"></div>
 
             <div class="players-grid" id="players-list"></div>
 
-            <div style="text-align: center; margin-top: 20px;" id="start-controls">
-                <button class="btn-primary" style="background: #10b981; width: auto;" onclick="startGame()">Mulai Permainan (+AI)</button>
+            <div style="text-align: center; margin-top: 15px;" id="start-controls">
+                <button class="btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); width: 80%; margin-bottom: 10px;" id="btn-start" onclick="startGame()">Mulai Permainan (+AI)</button>
+                <button class="btn-primary" style="background: linear-gradient(135deg, #64748b, #475569); width: 80%; padding: 10px; font-size: 14px;" onclick="leaveRoom()">🚪 Keluar Room</button>
             </div>
         </div>
     </div>
 
-    <div id="action-container">
-        <button id="btn-action" onclick="submitAction()">Konfirmasi</button>
-    </div>
+    <div id="action-container"></div>
 
     <script>
         const socket = io({
             auth: { sessionId: localStorage.getItem('lulli_ww_session') }
         });
-
 
         let currentRoom = '';
         let myId = '';
@@ -188,6 +236,21 @@
         let currentPhase = '';
         let amIDead = false;
         let selectedTargetId = null;
+        let currentDay = 1;
+        
+        // MENGATASI BUG: Status lokal untuk mematikan fungsi klik setelah beraksi
+        let hasActedLocally = false;
+        let lastPhaseForLock = '';
+
+        window.onload = () => {
+            const savedName = localStorage.getItem('lulli_ww_name');
+            const savedRoom = localStorage.getItem('lulli_ww_room');
+            if (savedName && savedRoom) {
+                document.getElementById('playerName').value = savedName;
+                document.getElementById('roomId').value = savedRoom;
+                joinGame();
+            }
+        };
 
         socket.on('session', ({ sessionId }) => {
             socket.auth.sessionId = sessionId;
@@ -201,16 +264,31 @@
             if (!name || !room) return alert("Isi nama dan room!");
 
             currentRoom = room;
+            localStorage.setItem('lulli_ww_name', name);
+            localStorage.setItem('lulli_ww_room', room);
+
             socket.emit('joinRoom', { roomId: room, playerName: name });
 
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'flex';
         }
 
+        function leaveRoom() {
+            localStorage.removeItem('lulli_ww_room'); 
+            location.reload(); 
+        }
+
         socket.on('updateState', (gameState) => {
             currentPhase = gameState.time;
+            currentDay = gameState.day;
             const myData = gameState.player.find(p => p.id === myId);
             
+            // Buka kunci aksi jika fase permainan berganti ke fase baru
+            if (gameState.time !== lastPhaseForLock) {
+                hasActedLocally = false;
+                lastPhaseForLock = gameState.time;
+            }
+
             if (myData) {
                 myRole = myData.role || '?';
                 amIDead = myData.isdead;
@@ -222,6 +300,11 @@
 
             if (gameState.status) {
                 document.getElementById('start-controls').style.display = 'none';
+            } else {
+                document.getElementById('start-controls').style.display = 'block';
+                if (gameState.day > 1) {
+                    document.getElementById('btn-start').innerText = "🔄 Main Lagi (+AI)";
+                }
             }
         });
 
@@ -229,7 +312,7 @@
             const logContainer = document.getElementById('game-log');
             const newLog = document.createElement('div');
             newLog.className = 'log-msg';
-            if(message.includes('💀') || message.includes('🐺') || message.includes('PERMAINAN BERAKHIR')) {
+            if(message.includes('💀') || message.includes('🐺') || message.includes('PERMAINAN BERAKHIR') || message.includes('☠️')) {
                 newLog.classList.add('important');
             }
             newLog.innerHTML = `<strong>[Sistem]</strong> ${message.replace(/\n/g, '<br>')}`;
@@ -238,7 +321,7 @@
         });
 
         function updateThemeAndHeader(gameState) {
-            document.body.className = ''; // Reset tema
+            document.body.className = ''; 
             const phaseTitle = document.getElementById('phase-title');
             const dayCounter = document.getElementById('day-counter');
             
@@ -248,6 +331,10 @@
                 document.body.classList.add('theme-lobby');
                 phaseTitle.innerText = "MENUNGGU PEMAIN";
                 hideInstruction();
+            } else if (currentPhase === 'mayor') {
+                document.body.classList.add('theme-voting');
+                phaseTitle.innerText = "PEMILIHAN KADES 🗳️";
+                setMayorInstruction();
             } else if (currentPhase === 'malem') {
                 document.body.classList.add('theme-night');
                 phaseTitle.innerText = "MALAM HARI 🌙";
@@ -271,19 +358,35 @@
             if (amIDead) roleText += ' (MATI 💀)';
             badge.innerText = `Role: ${roleText}`;
 
-            // Warnai badge sesuai role
             if (myRole === 'werewolf') badge.style.background = 'var(--ww-red)';
             else if (myRole === 'seer') badge.style.background = 'var(--seer-blue)';
             else if (myRole === 'guard') badge.style.background = 'var(--guard-green)';
+            else if (myRole === 'witch') badge.style.background = '#8b5cf6';
+            else if (myRole === 'hunter') badge.style.background = '#ea580c';
             else badge.style.background = '#475569';
             
-            if (amIDead) badge.style.background = '#1e293b'; // Warna redup jika mati
+            if (amIDead) badge.style.background = '#1e293b'; 
+        }
+
+        function setMayorInstruction() {
+            const inst = document.getElementById('role-instruction');
+            inst.style.display = 'block';
+            inst.className = '';
+            if (amIDead) {
+                inst.innerText = "Arwah tidak bisa ikut pemilu.";
+                inst.classList.add('inst-sleep');
+            } else {
+                inst.innerText = "👑 Siapa yang pantas memimpin desa? Suara Kades dihitung 2x!";
+                inst.style.background = "rgba(245, 158, 11, 0.2)";
+                inst.style.border = "2px solid #f59e0b";
+                inst.style.color = "#fcd34d";
+            }
         }
 
         function setNightInstruction() {
             const inst = document.getElementById('role-instruction');
             inst.style.display = 'block';
-            inst.className = ''; // reset
+            inst.className = ''; 
 
             if (amIDead) {
                 inst.innerText = "Kamu sudah mati. Saksikan permainannya.";
@@ -292,11 +395,17 @@
                 inst.innerText = "🐺 Waktunya Berburu! Pilih satu warga untuk dibunuh.";
                 inst.classList.add('inst-werewolf');
             } else if (myRole === 'seer') {
-                inst.innerText = "🔮 Waktunya Menerawang! Pilih satu warga untuk dicek identitasnya.";
+                inst.innerText = "🔮 Waktunya Menerawang! Cek identitas satu warga.";
                 inst.classList.add('inst-seer');
             } else if (myRole === 'guard') {
-                inst.innerText = "🛡️ Waktunya Menjaga! Pilih satu warga untuk dilindungi malam ini.";
+                inst.innerText = "🛡️ Waktunya Menjaga! Lindungi satu warga malam ini.";
                 inst.classList.add('inst-guard');
+            } else if (myRole === 'witch') {
+                inst.innerText = "🧪 Siapkan Ramuanmu! Selamatkan atau Racuni seseorang.";
+                inst.style.border = "2px solid #8b5cf6"; inst.style.color = "#c4b5fd"; inst.style.background = "rgba(139, 92, 246, 0.15)";
+            } else if (myRole === 'hunter') {
+                inst.innerText = "🎯 Siapkan Senapan! Tandai target untuk balas dendam.";
+                inst.style.border = "2px solid #ea580c"; inst.style.color = "#fdba74"; inst.style.background = "rgba(234, 88, 12, 0.15)";
             } else {
                 inst.innerText = "💤 Waktunya Tidur. Berdoalah agar kamu selamat sampai pagi.";
                 inst.classList.add('inst-sleep');
@@ -307,12 +416,11 @@
             const inst = document.getElementById('role-instruction');
             inst.style.display = 'block';
             inst.className = '';
-            
             if (amIDead) {
-                inst.innerText = "Kamu sudah mati, arwah tidak bisa ikut campur saat voting.";
+                inst.innerText = "Kamu mati, arwah dilarang voting.";
                 inst.classList.add('inst-sleep');
             } else {
-                inst.innerText = "⚖️ Siapa Werewolf-nya? Klik pemain yang ingin kamu gantung!";
+                inst.innerText = "⚖️ Siapa Werewolf-nya? Klik pemain yang ingin digantung!";
                 inst.style.background = "rgba(245, 158, 11, 0.2)";
                 inst.style.border = "2px solid #f59e0b";
                 inst.style.color = (document.body.classList.contains('theme-day') || document.body.classList.contains('theme-voting')) ? "#b45309" : "#f59e0b";
@@ -326,51 +434,45 @@
             inst.innerText = text;
         }
 
-        function hideInstruction() {
-            document.getElementById('role-instruction').style.display = 'none';
-        }
+        function hideInstruction() { document.getElementById('role-instruction').style.display = 'none'; }
 
         function renderPlayers(players, myData) {
             const grid = document.getElementById('players-list');
             grid.innerHTML = ''; 
             selectedTargetId = null; 
-            document.getElementById('action-container').style.display = 'none'; // Sembunyikan tombol
+            const actionContainer = document.getElementById('action-container');
+            actionContainer.style.display = 'none'; 
             
             let canClick = false;
             let actionStyle = '';
             let btnText = '';
+            let isWitchNight = false;
 
-            // Tentukan apakah user bisa klik pemain berdasarkan Fase & Role
-            if (!amIDead) {
-                if (currentPhase === 'voting') {
+            // BUG FIX: Cek `hasActedLocally` agar jika sudah pencet, gak bisa klik kartu lagi
+            if (!amIDead && !hasActedLocally && !myData.status) {
+                if (currentPhase === 'mayor') {
+                    canClick = true; actionStyle = 'selected-vote'; btnText = 'Pilih Jadi Kades!';
+                } else if (currentPhase === 'voting') {
                     canClick = true; actionStyle = 'selected-vote'; btnText = 'Gantung Pemain Ini!';
-                } else if (currentPhase === 'malem' && !myData.status) {
+                } else if (currentPhase === 'malem') {
                     if (myRole === 'werewolf') { canClick = true; actionStyle = 'selected-ww'; btnText = 'Bunuh Pemain Ini!'; }
                     else if (myRole === 'seer') { canClick = true; actionStyle = 'selected-seer'; btnText = 'Terawang Pemain Ini!'; }
                     else if (myRole === 'guard') { canClick = true; actionStyle = 'selected-guard'; btnText = 'Lindungi Pemain Ini!'; }
+                    else if (myRole === 'hunter') { canClick = true; actionStyle = 'selected-vote'; btnText = 'Tandai Target!'; }
+                    else if (myRole === 'witch') { canClick = true; actionStyle = 'selected-seer'; isWitchNight = true; }
                 }
             }
-
-            // Setting style tombol aksi
-            const btnAction = document.getElementById('btn-action');
-            btnAction.className = '';
-            btnAction.innerText = btnText;
-            if(myRole === 'werewolf' && currentPhase === 'malem') btnAction.classList.add('btn-ww');
-            else if(myRole === 'seer' && currentPhase === 'malem') btnAction.classList.add('btn-seer');
-            else if(myRole === 'guard' && currentPhase === 'malem') btnAction.classList.add('btn-guard');
-            else if(currentPhase === 'voting') btnAction.classList.add('btn-vote');
 
             players.forEach(p => {
                 const card = document.createElement('div');
                 card.className = `player-card ${p.isdead ? 'dead' : ''}`;
                 
-                let wwFriend = '';
-                if (myRole === 'werewolf' && p.role === 'werewolf' && p.id !== myId) {
-                    wwFriend = '<div class="ww-friend">🐺</div>';
-                }
+                let wwFriend = (myRole === 'werewolf' && p.role === 'werewolf' && p.id !== myId && !p.isdead) ? '<div class="ww-friend">🐺</div>' : '';
+                let mayorCrown = p.isMayor ? '<div class="mayor-crown">👑</div>' : '';
 
                 card.innerHTML = `
                     ${wwFriend}
+                    ${mayorCrown}
                     <h2 style="margin: 0 0 5px 0;">#${p.number}</h2>
                     <p style="margin: 0; font-weight: bold;">${p.name}</p>
                 `;
@@ -378,12 +480,34 @@
                 if (canClick && !p.isdead) {
                     card.classList.add('clickable');
                     card.onclick = () => {
+                        // Pencegahan klik ganda tambahan
+                        if(hasActedLocally) return;
+
                         document.querySelectorAll('.player-card').forEach(c => {
                             c.classList.remove('selected', 'selected-ww', 'selected-seer', 'selected-guard', 'selected-vote');
                         });
                         card.classList.add('selected', actionStyle);
                         selectedTargetId = p.id;
-                        document.getElementById('action-container').style.display = 'flex';
+                        
+                        if (isWitchNight) {
+                            if (currentDay > 1) {
+                                actionContainer.innerHTML = `
+                                    <button class="btn-action-main btn-guard" onclick="submitWitchAction('elixir')">🧪 Elixir (${myData.potions.elixir})</button>
+                                    <button class="btn-action-main btn-ww" onclick="submitWitchAction('poison')">☠️ Poison (${myData.potions.poison})</button>
+                                `;
+                            } else {
+                                actionContainer.innerHTML = `<button class="btn-action-main" style="background:gray; cursor:not-allowed;">Ramuan Belum Siap di Hari ke-1</button>`;
+                            }
+                        } else {
+                            actionContainer.innerHTML = `<button id="btn-action-normal" class="btn-action-main" onclick="submitAction()">${btnText}</button>`;
+                            const btnNormal = document.getElementById('btn-action-normal');
+                            if(myRole === 'werewolf' && currentPhase === 'malem') btnNormal.classList.add('btn-ww');
+                            else if(myRole === 'seer' && currentPhase === 'malem') btnNormal.classList.add('btn-seer');
+                            else if(myRole === 'guard' && currentPhase === 'malem') btnNormal.classList.add('btn-guard');
+                            else btnNormal.classList.add('btn-vote');
+                        }
+
+                        actionContainer.style.display = 'flex';
                     };
                 }
 
@@ -391,19 +515,30 @@
             });
         }
 
+        // FUNGSI PENGUNCI AKSI (Mematikan klik secara tuntas)
+        function lockActions() {
+            hasActedLocally = true; // Kunci sistem lokal
+            document.getElementById('action-container').style.display = 'none'; // Sembunyikan tombol
+            document.getElementById('role-instruction').className = 'inst-sleep'; // Ubah status atas
+            document.getElementById('role-instruction').innerText = "Aksi diterima. Menunggu sistem...";
+            
+            // Hapus fungsi klik dan hover dari semua kartu
+            document.querySelectorAll('.player-card').forEach(c => {
+                c.classList.remove('clickable', 'selected', 'selected-ww', 'selected-seer', 'selected-guard', 'selected-vote');
+                c.onclick = null; 
+            });
+        }
+
         function submitAction() {
-            if (!selectedTargetId) return;
-            
-            socket.emit('playerAction', { roomId: currentRoom, targetId: selectedTargetId });
-            document.getElementById('action-container').style.display = 'none';
-            
-            // Ubah instruksi jadi menunggu
-            const inst = document.getElementById('role-instruction');
-            inst.className = 'inst-sleep';
-            inst.innerText = "Aksi diterima. Menunggu pemain lain selesai...";
-            
-            // Hilangkan efek clickable sampai fase berikutnya
-            document.querySelectorAll('.player-card').forEach(c => c.classList.remove('clickable'));
+            if (!selectedTargetId || hasActedLocally) return;
+            socket.emit('playerAction', { roomId: currentRoom, targetId: selectedTargetId, actionType: 'normal' });
+            lockActions();
+        }
+
+        function submitWitchAction(type) {
+            if (!selectedTargetId || hasActedLocally) return;
+            socket.emit('playerAction', { roomId: currentRoom, targetId: selectedTargetId, actionType: type });
+            lockActions();
         }
 
         function startGame() {

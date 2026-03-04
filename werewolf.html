@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Werewolf AI - Web Edition</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        /* --- CSS STYLING & THEMES --- */
+        :root {
+            --text-light: #f8fafc;
+            --text-dark: #0f172a;
+            --ww-red: #ef4444;
+            --seer-blue: #3b82f6;
+            --guard-green: #10b981;
+            --card-bg-dark: rgba(30, 41, 59, 0.8);
+            --card-bg-light: rgba(255, 255, 255, 0.8);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background 1.5s ease, color 1.5s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* TEMA: MENUNGGU / LOGIN */
+        body.theme-lobby { background: #1e293b; color: var(--text-light); }
+        
+        /* TEMA: MALAM HARI (NIGHT) */
+        body.theme-night { background: #020617; color: var(--text-light); }
+        
+        /* TEMA: PAGI HARI (DAY) - Hasil semalam */
+        body.theme-day { background: #e0f2fe; color: var(--text-dark); }
+        
+        /* TEMA: SORE/VOTING - Tegang */
+        body.theme-voting { background: #fed7aa; color: var(--text-dark); }
+
+        .container { width: 95%; max-width: 900px; margin-top: 20px; display: flex; flex-direction: column; gap: 20px; z-index: 10; }
+
+        /* --- LOGIN SCREEN --- */
+        #login-screen {
+            background: var(--card-bg-dark); padding: 40px; border-radius: 20px;
+            text-align: center; margin-top: 15vh; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            color: white; border: 1px solid rgba(255,255,255,0.1);
+        }
+        input { width: 80%; padding: 15px; margin: 10px 0; border-radius: 10px; border: none; font-size: 16px; text-align: center; }
+        button.btn-primary {
+            background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; border: none;
+            padding: 15px 30px; font-size: 18px; border-radius: 10px; cursor: pointer;
+            transition: 0.3s; font-weight: bold; width: 85%; margin-top: 15px;
+        }
+        button.btn-primary:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4); }
+
+        /* --- GAME SCREEN --- */
+        #game-screen { display: none; flex-direction: column; gap: 20px; }
+
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(0,0,0,0.2); padding: 15px 25px; border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .phase-title { font-size: 24px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: 2px; }
+        .day-counter { font-size: 14px; opacity: 0.8; }
+
+        #my-role-container { text-align: right; }
+        #my-role-badge {
+            display: inline-block; padding: 8px 15px; border-radius: 8px; font-weight: bold;
+            font-size: 16px; text-transform: uppercase; letter-spacing: 1px; color: white;
+            background: #475569; /* Default hidden */
+            transition: all 0.5s;
+        }
+
+        /* --- INSTRUCTION OVERLAY (Pesan Spesifik Role) --- */
+        #role-instruction {
+            text-align: center; padding: 15px; border-radius: 10px; font-weight: bold; font-size: 18px;
+            display: none; transition: 0.5s;
+        }
+        .inst-werewolf { background: rgba(239, 68, 68, 0.2); border: 2px solid var(--ww-red); color: var(--ww-red); }
+        .inst-seer { background: rgba(59, 130, 246, 0.2); border: 2px solid var(--seer-blue); color: var(--seer-blue); }
+        .inst-guard { background: rgba(16, 185, 129, 0.2); border: 2px solid var(--guard-green); color: var(--guard-green); }
+        .inst-sleep { background: rgba(255, 255, 255, 0.1); border: 2px dashed #94a3b8; color: #94a3b8; }
+
+        /* --- LOG CONTAINER --- */
+        .log-container {
+            background: rgba(0, 0, 0, 0.3); height: 180px; overflow-y: auto;
+            border-radius: 15px; padding: 15px; display: flex; flex-direction: column; gap: 10px;
+            border: 1px solid rgba(255,255,255,0.1); color: white;
+        }
+        .log-msg { background: rgba(255,255,255,0.1); padding: 10px 15px; border-radius: 8px; font-size: 15px; border-left: 4px solid #94a3b8; }
+        .log-msg.important { border-left-color: var(--ww-red); background: rgba(239, 68, 68, 0.1); }
+
+        /* --- PLAYERS GRID --- */
+        .players-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
+        
+        .player-card {
+            background: var(--card-bg-dark); padding: 20px 10px; border-radius: 15px;
+            text-align: center; cursor: pointer; transition: 0.3s;
+            border: 2px solid transparent; color: white; position: relative;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        body.theme-day .player-card, body.theme-voting .player-card { background: var(--card-bg-light); color: var(--text-dark); border: 1px solid #cbd5e1; }
+
+        .player-card.clickable:hover { transform: translateY(-5px); box-shadow: 0 10px 15px rgba(0,0,0,0.2); border-color: #cbd5e1; }
+        
+        .player-card.selected { transform: scale(1.05); }
+        .player-card.selected-ww { border-color: var(--ww-red); box-shadow: 0 0 15px var(--ww-red); }
+        .player-card.selected-seer { border-color: var(--seer-blue); box-shadow: 0 0 15px var(--seer-blue); }
+        .player-card.selected-guard { border-color: var(--guard-green); box-shadow: 0 0 15px var(--guard-green); }
+        .player-card.selected-vote { border-color: #f59e0b; box-shadow: 0 0 15px #f59e0b; background: rgba(245, 158, 11, 0.1); }
+
+        .player-card.dead { filter: grayscale(100%); opacity: 0.5; text-decoration: line-through; cursor: not-allowed; border-color: #475569; }
+        .player-card.dead::after { content: '💀'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; opacity: 0.8; }
+
+        .ww-friend { position: absolute; top: -10px; right: -10px; background: var(--ww-red); padding: 5px; border-radius: 50%; font-size: 16px; box-shadow: 0 0 10px var(--ww-red); }
+
+        /* --- ACTION BUTTON --- */
+        #action-container { display: none; justify-content: center; position: fixed; bottom: 30px; left: 0; width: 100%; z-index: 100; }
+        #btn-action {
+            padding: 15px 40px; font-size: 20px; font-weight: bold; border-radius: 30px; border: none;
+            color: white; cursor: pointer; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            animation: pulse 2s infinite; transition: 0.3s;
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        
+        .btn-ww { background: var(--ww-red); }
+        .btn-seer { background: var(--seer-blue); }
+        .btn-guard { background: var(--guard-green); }
+        .btn-vote { background: #f59e0b; color: #1e293b !important; }
+
+        #btn-action:hover { transform: scale(1.1) !important; animation: none; }
+    </style>
+</head>
+<body class="theme-lobby">
+
+    <div class="container">
+        <div id="login-screen">
+            <h1 style="margin-bottom: 5px;">🐺 Lulli Werewolf</h1>
+            <p style="opacity: 0.7; margin-bottom: 25px;">Masukkan identitas untuk memasuki desa.</p>
+            <input type="text" id="playerName" placeholder="Nama Kamu (cth: Surya)" required>
+            <input type="text" id="roomId" placeholder="ID Room (cth: LULLI123)" required>
+            <button class="btn-primary" onclick="joinGame()">Masuk ke Desa</button>
+        </div>
+
+        <div id="game-screen">
+            
+            <div class="header">
+                <div>
+                    <div id="phase-title" class="phase-title">MENUNGGU PEMAIN</div>
+                    <div id="day-counter" class="day-counter">Room: -</div>
+                </div>
+                <div id="my-role-container">
+                    <div id="my-role-badge">Role: ?</div>
+                </div>
+            </div>
+
+            <div id="role-instruction"></div>
+
+            <div class="log-container" id="game-log"></div>
+
+            <div class="players-grid" id="players-list"></div>
+
+            <div style="text-align: center; margin-top: 20px;" id="start-controls">
+                <button class="btn-primary" style="background: #10b981; width: auto;" onclick="startGame()">Mulai Permainan (+AI)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="action-container">
+        <button id="btn-action" onclick="submitAction()">Konfirmasi</button>
+    </div>
+
+    <script>
+        const socket = io('http://localhost:3000', {
+            auth: { sessionId: localStorage.getItem('lulli_ww_session') }
+        });
+
+        let currentRoom = '';
+        let myId = '';
+        let myRole = '';
+        let currentPhase = '';
+        let amIDead = false;
+        let selectedTargetId = null;
+
+        socket.on('session', ({ sessionId }) => {
+            socket.auth.sessionId = sessionId;
+            localStorage.setItem('lulli_ww_session', sessionId);
+            myId = sessionId;
+        });
+
+        function joinGame() {
+            const name = document.getElementById('playerName').value;
+            const room = document.getElementById('roomId').value;
+            if (!name || !room) return alert("Isi nama dan room!");
+
+            currentRoom = room;
+            socket.emit('joinRoom', { roomId: room, playerName: name });
+
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'flex';
+        }
+
+        socket.on('updateState', (gameState) => {
+            currentPhase = gameState.time;
+            const myData = gameState.player.find(p => p.id === myId);
+            
+            if (myData) {
+                myRole = myData.role || '?';
+                amIDead = myData.isdead;
+                updateRoleBadge();
+            }
+
+            updateThemeAndHeader(gameState);
+            renderPlayers(gameState.player, myData);
+
+            if (gameState.status) {
+                document.getElementById('start-controls').style.display = 'none';
+            }
+        });
+
+        socket.on('gameLog', (message) => {
+            const logContainer = document.getElementById('game-log');
+            const newLog = document.createElement('div');
+            newLog.className = 'log-msg';
+            if(message.includes('💀') || message.includes('🐺') || message.includes('PERMAINAN BERAKHIR')) {
+                newLog.classList.add('important');
+            }
+            newLog.innerHTML = `<strong>[Sistem]</strong> ${message.replace(/\n/g, '<br>')}`;
+            logContainer.appendChild(newLog);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        });
+
+        function updateThemeAndHeader(gameState) {
+            document.body.className = ''; // Reset tema
+            const phaseTitle = document.getElementById('phase-title');
+            const dayCounter = document.getElementById('day-counter');
+            
+            dayCounter.innerText = `Hari ke-${gameState.day} | Room: ${currentRoom}`;
+
+            if (!gameState.status) {
+                document.body.classList.add('theme-lobby');
+                phaseTitle.innerText = "MENUNGGU PEMAIN";
+                hideInstruction();
+            } else if (currentPhase === 'malem') {
+                document.body.classList.add('theme-night');
+                phaseTitle.innerText = "MALAM HARI 🌙";
+                setNightInstruction();
+            } else if (currentPhase === 'pagi') {
+                document.body.classList.add('theme-day');
+                phaseTitle.innerText = "PAGI HARI 🌅";
+                setDayInstruction("Baca laporan kejadian semalam.");
+            } else if (currentPhase === 'voting') {
+                document.body.classList.add('theme-voting');
+                phaseTitle.innerText = "WAKTUNYA VOTING ⚖️";
+                setVotingInstruction();
+            }
+        }
+
+        function updateRoleBadge() {
+            const badge = document.getElementById('my-role-badge');
+            if (myRole === '?') return;
+
+            let roleText = myRole.toUpperCase();
+            if (amIDead) roleText += ' (MATI 💀)';
+            badge.innerText = `Role: ${roleText}`;
+
+            // Warnai badge sesuai role
+            if (myRole === 'werewolf') badge.style.background = 'var(--ww-red)';
+            else if (myRole === 'seer') badge.style.background = 'var(--seer-blue)';
+            else if (myRole === 'guard') badge.style.background = 'var(--guard-green)';
+            else badge.style.background = '#475569';
+            
+            if (amIDead) badge.style.background = '#1e293b'; // Warna redup jika mati
+        }
+
+        function setNightInstruction() {
+            const inst = document.getElementById('role-instruction');
+            inst.style.display = 'block';
+            inst.className = ''; // reset
+
+            if (amIDead) {
+                inst.innerText = "Kamu sudah mati. Saksikan permainannya.";
+                inst.classList.add('inst-sleep');
+            } else if (myRole === 'werewolf') {
+                inst.innerText = "🐺 Waktunya Berburu! Pilih satu warga untuk dibunuh.";
+                inst.classList.add('inst-werewolf');
+            } else if (myRole === 'seer') {
+                inst.innerText = "🔮 Waktunya Menerawang! Pilih satu warga untuk dicek identitasnya.";
+                inst.classList.add('inst-seer');
+            } else if (myRole === 'guard') {
+                inst.innerText = "🛡️ Waktunya Menjaga! Pilih satu warga untuk dilindungi malam ini.";
+                inst.classList.add('inst-guard');
+            } else {
+                inst.innerText = "💤 Waktunya Tidur. Berdoalah agar kamu selamat sampai pagi.";
+                inst.classList.add('inst-sleep');
+            }
+        }
+
+        function setVotingInstruction() {
+            const inst = document.getElementById('role-instruction');
+            inst.style.display = 'block';
+            inst.className = '';
+            
+            if (amIDead) {
+                inst.innerText = "Kamu sudah mati, arwah tidak bisa ikut campur saat voting.";
+                inst.classList.add('inst-sleep');
+            } else {
+                inst.innerText = "⚖️ Siapa Werewolf-nya? Klik pemain yang ingin kamu gantung!";
+                inst.style.background = "rgba(245, 158, 11, 0.2)";
+                inst.style.border = "2px solid #f59e0b";
+                inst.style.color = (document.body.classList.contains('theme-day') || document.body.classList.contains('theme-voting')) ? "#b45309" : "#f59e0b";
+            }
+        }
+
+        function setDayInstruction(text) {
+            const inst = document.getElementById('role-instruction');
+            inst.style.display = 'block';
+            inst.className = 'inst-sleep';
+            inst.innerText = text;
+        }
+
+        function hideInstruction() {
+            document.getElementById('role-instruction').style.display = 'none';
+        }
+
+        function renderPlayers(players, myData) {
+            const grid = document.getElementById('players-list');
+            grid.innerHTML = ''; 
+            selectedTargetId = null; 
+            document.getElementById('action-container').style.display = 'none'; // Sembunyikan tombol
+            
+            let canClick = false;
+            let actionStyle = '';
+            let btnText = '';
+
+            // Tentukan apakah user bisa klik pemain berdasarkan Fase & Role
+            if (!amIDead) {
+                if (currentPhase === 'voting') {
+                    canClick = true; actionStyle = 'selected-vote'; btnText = 'Gantung Pemain Ini!';
+                } else if (currentPhase === 'malem' && !myData.status) {
+                    if (myRole === 'werewolf') { canClick = true; actionStyle = 'selected-ww'; btnText = 'Bunuh Pemain Ini!'; }
+                    else if (myRole === 'seer') { canClick = true; actionStyle = 'selected-seer'; btnText = 'Terawang Pemain Ini!'; }
+                    else if (myRole === 'guard') { canClick = true; actionStyle = 'selected-guard'; btnText = 'Lindungi Pemain Ini!'; }
+                }
+            }
+
+            // Setting style tombol aksi
+            const btnAction = document.getElementById('btn-action');
+            btnAction.className = '';
+            btnAction.innerText = btnText;
+            if(myRole === 'werewolf' && currentPhase === 'malem') btnAction.classList.add('btn-ww');
+            else if(myRole === 'seer' && currentPhase === 'malem') btnAction.classList.add('btn-seer');
+            else if(myRole === 'guard' && currentPhase === 'malem') btnAction.classList.add('btn-guard');
+            else if(currentPhase === 'voting') btnAction.classList.add('btn-vote');
+
+            players.forEach(p => {
+                const card = document.createElement('div');
+                card.className = `player-card ${p.isdead ? 'dead' : ''}`;
+                
+                let wwFriend = '';
+                if (myRole === 'werewolf' && p.role === 'werewolf' && p.id !== myId) {
+                    wwFriend = '<div class="ww-friend">🐺</div>';
+                }
+
+                card.innerHTML = `
+                    ${wwFriend}
+                    <h2 style="margin: 0 0 5px 0;">#${p.number}</h2>
+                    <p style="margin: 0; font-weight: bold;">${p.name}</p>
+                `;
+
+                if (canClick && !p.isdead) {
+                    card.classList.add('clickable');
+                    card.onclick = () => {
+                        document.querySelectorAll('.player-card').forEach(c => {
+                            c.classList.remove('selected', 'selected-ww', 'selected-seer', 'selected-guard', 'selected-vote');
+                        });
+                        card.classList.add('selected', actionStyle);
+                        selectedTargetId = p.id;
+                        document.getElementById('action-container').style.display = 'flex';
+                    };
+                }
+
+                grid.appendChild(card);
+            });
+        }
+
+        function submitAction() {
+            if (!selectedTargetId) return;
+            
+            socket.emit('playerAction', { roomId: currentRoom, targetId: selectedTargetId });
+            document.getElementById('action-container').style.display = 'none';
+            
+            // Ubah instruksi jadi menunggu
+            const inst = document.getElementById('role-instruction');
+            inst.className = 'inst-sleep';
+            inst.innerText = "Aksi diterima. Menunggu pemain lain selesai...";
+            
+            // Hilangkan efek clickable sampai fase berikutnya
+            document.querySelectorAll('.player-card').forEach(c => c.classList.remove('clickable'));
+        }
+
+        function startGame() {
+            if (!currentRoom) return;
+            socket.emit('startGame', { roomId: currentRoom });
+        }
+    </script>
+</body>
+</html>

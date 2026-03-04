@@ -280,7 +280,7 @@ io.on('connection', (socket) => {
 });
 
 // Jalankan Server
-const PORT = 3000;
-server.listen(PORT, () => {
-    console.log(`🐺 Werewolf Web Server menyala di http://localhost:${PORT}`);
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🐺 Werewolf Web Server menyala di port ${PORT}`);
 });
